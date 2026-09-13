@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 // a base tokenizer class
 type Tokenizer struct {
 	Merges        map[Pair]int
@@ -57,4 +59,44 @@ func (t *Tokenizer) Encode(text string) {
 func (t *Tokenizer) Decode(ids []int) {
 	// tokenizer can decode a list of integers into a string
 	panic("Not Implemented Error")
+}
+
+func (t *Tokenizer) Save(file_prefix string) {
+	/**
+	saves two files : file_prefix.vocab and file_prefix.model
+	 - inspired by sentencepiece model saving
+	 - model file is the critical file, intended for Load()
+	 - vocab file is just a pretty printed version for human inspection
+	*/
+
+	model_file := file_prefix + ".model"
+
+	// open the model file and write the stuff
+	// TODO!
+
+	vocab_file := file_prefix + ".vocab"
+	var inverted_merges map[int]Pair
+	for pair, idx := range t.Merges() {
+		inverted_merges[idx] = pair
+	}
+
+	// write the vocab: for the human to look at
+	// TODO!
+}
+
+func (t* Tokenizer) Load(model_file: string) {
+	//inverse of Save() , but only for the model file
+
+	// read the model file
+	var merges map[Pair]int
+	var special_tokens map[string]int
+	idx := 256
+
+	// open file and do the operations
+	// TODO!
+
+
+	t.Merges = merges
+	t.SpecialTokens = special_tokens
+	t.vocab = t.BuildVocab()
 }
