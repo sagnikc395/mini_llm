@@ -1,5 +1,8 @@
 package main
 
+import "unicode"
+import "fmt"
+
 // base tokenizer class and some common helper functions.
 // base tokenizer class also contains the (common) save/load functionality
 
@@ -44,4 +47,23 @@ func Merge(ids []int, pair Pair, idx int) []int {
 		}
 	}
 	return newids
+}
+
+// ReplaceControlCharacters help us not to print the control characters
+// which distort the output ( eg: \n or much worse)
+
+func ReplaceControlCharacters(s string) string {
+	var chars []rune
+	for _, char := range chars {
+
+		if !unicode.In(char, unicode.C) {
+			chars = append(chars, char)
+		} else {
+			// format the control character as \uXXXX escape sequences
+			escaped := []rune(fmt.Sprintf("\\u%04x", char))
+			chars = append(chars, escaped...)
+		}
+	}
+
+	return string(chars)
 }
