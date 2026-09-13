@@ -2,6 +2,8 @@ package main
 
 import "unicode"
 import "fmt"
+import "unicode/utf8"
+import "strings"
 
 // base tokenizer class and some common helper functions.
 // base tokenizer class also contains the (common) save/load functionality
@@ -66,4 +68,24 @@ func ReplaceControlCharacters(s string) string {
 	}
 
 	return string(chars)
+}
+
+// pretty print a token
+
+func RenderToken(t []byte) string {
+	var builder strings.Builder
+	builder.Grow(len(t))
+
+	for i := 0; i < len(t); {
+		r, size := utf8.DecodeRune(t[i:])
+		i += size
+
+		//unicode.In witll match category C (control characters)
+		if unicode.In(r, unicode.C) {
+			fmt.Fprintf(&builder, "\\u%04x", r)
+		} else {
+			builder.WriteRune(r)
+		}
+	}
+	return builder.String()
 }
