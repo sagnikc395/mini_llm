@@ -25,3 +25,23 @@ func GetStats(ids []int, counts map[Pair]int) map[Pair]int {
 	return counts
 
 }
+
+//Merge methods will replace all consecutive occurences of pair with the new
+// integer token idx
+// ids = [1,2,3,1,2] , pair = (1,2) idx =4 -> [4,3,4]
+
+func Merge(ids []int, pair Pair, idx int) []int {
+	var newids []int
+	i := 0
+	for i < len(ids) {
+		// if not at the very last position and the pair matches, then replace it
+		if (ids[i] == pair.A) && (i < len(ids)-1) && (ids[i+1] == pair.B) {
+			newids = append(newids, idx)
+			i += 2
+		} else {
+			newids = append(newids, ids[i])
+			i += 1
+		}
+	}
+	return newids
+}
