@@ -43,3 +43,18 @@ func (t *Tokenizer) BuildVocab() map[int][]byte {
 
 	return vocab
 }
+
+func (t *Tokenizer) Train(text string, vocab_size int, verbose bool) {
+	// tokenizer can train a vocabulary of size vocab_size from text
+	panic("Not Implemented Error")
+}
+
+func (t *Tokenizer) Encode(text string) {
+	// tokenizer can encode a string into a list of integers
+	panic("Not Implemented Error")
+}
+
+func (t *Tokenizer) Decode(ids []int) {
+	// tokenizer can decode a list of integers into a string
+	panic("Not Implemented Error")
+}
