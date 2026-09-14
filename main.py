@@ -1,7 +1,9 @@
 import tiktoken
 import torch
-from mini_llm.training.mini_llm_gpt import GPTModel
+
+# from mini_llm.training.mini_llm_gpt import GPTModel
 from mini_llm.config import GPT_CONFIG_124M
+from mini_llm.training.gpt_model import GPTModel
 
 
 def main():
@@ -20,7 +22,8 @@ def main():
     torch.manual_seed(123)
     model = GPTModel(GPT_CONFIG_124M)
     logits = model(batch)
-    print(f"Output shape: {logits.shape}")
+    print(f"Input batch: \n{batch}")
+    print(f"Output shape: \n{logits.shape}")
     print(logits)
 
 
