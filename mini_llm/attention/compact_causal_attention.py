@@ -36,10 +36,10 @@ class CausalAttention(Module):
         return context_vec
 
 
-batch = torch.stack((inputs, inputs), dim=0)
-print(batch.shape)
-torch.manual_seed(123)
-context_length = batch.shape[1]
-ca = CausalAttention(d_in, d_out, context_length, 0.0)
-context_vecs = ca(batch)
-print(f"context_vecs.shape: {context_vecs.shape}")
+# batch = torch.stack((inputs, inputs), dim=0)
+# print(batch.shape)
+# torch.manual_seed(123)
+# context_length = batch.shape[1]
+# ca = CausalAttention(d_in, d_out, context_length, 0.0)
+# context_vecs = ca(batch)
+# print(f"context_vecs.shape: {context_vecs.shape}")

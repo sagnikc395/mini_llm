@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from mini_llm.config import GPT_CONFIG_124M as cfg
-from mini_llm.attention import MultiHeadAttention
+from mini_llm.attention.multi_head_attention import MultiHeadAttention
 
 
 class GPTModel(nn.Module):
@@ -44,7 +44,7 @@ class TransformerBlock(nn.Module):
             qkv_bias=cfg.qkv_bias,
         )
         self.ff = FeedForward(cfg)
-        self.norm1 = LayerNorm(cfg.emd_dim)
+        self.norm1 = LayerNorm(cfg.emb_dim)
         self.norm2 = LayerNorm(cfg.emb_dim)
         self.drop_shortcut = nn.Dropout(cfg.drop_rate)
 
@@ -217,3 +217,15 @@ if __name__ == "__main__":
     torch.manual_seed(123)
     model_with_shortcut = DeepNeuralNetworkShortcut(layer_sizes, use_shortcut=True)
     print_gradients(model_with_shortcut, sample_input)
+
+    ## instantiating a transformer block and feed it some sample data
+    torch.manual_seed(123)
+
+    # create sample input of shape [batch_size, num_tokens,emb_dim]
+    x = torch.rand(2, 4, 768)
+
+    block = TransformerBlock(cfg)
+    output = block(x)
+
+    print(f"input shape: {x.shape}")
+    print(f"output shape: {output.shape}")

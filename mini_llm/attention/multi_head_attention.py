@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Module, ModuleList, Linear, Dropout
-from compact_causal_attention import CausalAttention
+from .compact_causal_attention import CausalAttention
 
 
 class MultiHeadAttentionWrapper(Module):
@@ -25,7 +25,7 @@ class MultiHeadAttention(Module):
         self.d_out = d_out
         self.num_heads = num_heads
         # reduce the projection dim to match the desired output dim
-        self.head_dum = d_out // num_heads
+        self.head_dim = d_out // num_heads
         self.w_query = Linear(d_in, d_out, bias=qkv_bias)
         self.w_key = Linear(d_in, d_out, bias=qkv_bias)
         self.w_value = Linear(d_in, d_out, bias=qkv_bias)
@@ -38,32 +38,33 @@ class MultiHeadAttention(Module):
         )
 
     def forward(self, x):
-        b, num_tokens, d_in = x.shape
+        b, num_tokens, _ = x.shape
         keys = self.w_key(x)
         # tensor shape would be (b,num_tokens,d_out)
         queries = self.w_query(x)
         values = self.w_value(x)
         # here we implicitly split the matrix by adding a num_heads dimension.
-        # then we unrol the last dim (b,num_tokens,d_out) -> (b,num_tokens,num_heads,head_dim)
+        # then we unroll the last dim (b,num_tokens,d_out) -> (b,num_tokens,num_heads,head_dim)
         keys = keys.view(b, num_tokens, self.num_heads, self.head_dim)
         values = values.view(b, num_tokens, self.num_heads, self.head_dim)
         queries = queries.view(b, num_tokens, self.num_heads, self.head_dim)
 
-        # then transpose from the shape (b,num_tokens, num_heads, head_dum) to (b,num_heads,num_tokens,head_dim)
+        # then transpose from the shape (b,num_tokens,num_heads,head_dim) to (b,num_heads,num_tokens,head_dim)
         keys = keys.transpose(1, 2)
-        queries = queries.tranpose(1, 2)
+        queries = queries.transpose(1, 2)
         values = values.transpose(1, 2)
 
         # then compute the dot product for each of the head
         attn_scores = queries @ keys.transpose(2, 3)
-        # mask the truncated to the number of tokens
-        mask_bool = self.mask_bool()[:num_tokens, :num_tokens]
+        # mask truncated to the number of tokens
+        mask_bool = self.mask.bool()[:num_tokens, :num_tokens]
         # now use the mask to fill the attention scores
         attn_scores.masked_fill_(mask_bool, -torch.inf)
+        attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
         attn_weights = self.dropout(attn_weights)
         # tensor shape is (b,num_tokens,n_heads,head_dim)
         context_vec = (attn_weights @ values).transpose(1, 2)
-        # combine the heads, where self.d_out = self.num_heads @ self.head_dim
+        # combine the heads, where self.d_out = self.num_heads * self.head_dim
         context_vec = context_vec.contiguous().view(b, num_tokens, self.d_out)
         # add a linear projection
         context_vec = self.out_proj(context_vec)
