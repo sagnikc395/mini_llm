@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from mini_llm.config import GPT_CONFIG_124M as cfg
+from mini_llm.attention import MultiHeadAttention
 
 
 class GPTModel(nn.Module):
@@ -34,8 +35,36 @@ class TransformerBlock(nn.Module):
     # placeholder for a real transformerblock
     def __init__(self, cfg):
         super().__init__()
+        self.att = MultiHeadAttention(
+            d_in=cfg.emb_dim,
+            d_out=cfg.emb_dim,
+            context_length=cfg.context_length,
+            num_heads=cfg.n_heads,
+            dropout=cfg.drop_rate,
+            qkv_bias=cfg.qkv_bias,
+        )
+        self.ff = FeedForward(cfg)
+        self.norm1 = LayerNorm(cfg.emd_dim)
+        self.norm2 = LayerNorm(cfg.emb_dim)
+        self.drop_shortcut = nn.Dropout(cfg.drop_rate)
 
     def forward(self, x):
+
+        # shortcut connection for attention block
+        shortcut = x
+        x = self.norm1(x)
+        x = self.att(x)
+        x = self.drop_shortcut(x)
+        # adding back the original input back
+        x = x + shortcut
+
+        # shortcut connection for feed forward block
+        shortcut = x
+        x = self.norm2(x)
+        x = self.ff(x)
+        x = self.drop_shortcut(x)
+        # adding back the original input back
+        x = x + shortcut
         return x
 
 
@@ -134,6 +163,22 @@ class DeepNeuralNetworkShortcut(nn.Module):
         return x
 
 
+# function that will compute the gradients in the model's backward pass
+def print_gradients(model, x):
+    output = model(x)
+    # forward pass
+    target = torch.tensor([[0.0]])
+
+    # calculate the loss based on how close the target and outputs are
+    loss = nn.MSELoss()
+    loss = loss(output, target)
+    loss.backward()
+
+    for name, param in model.named_parameters():
+        if "weight" in name:
+            print(f"{name} has gradient mean of {param.grad.abs().mean().item()}")
+
+
 if __name__ == "__main__":
     # LayerNorm(emb_dim=6).simple_layer_norm_example()
     # plot gelu vs relu side by side
@@ -160,3 +205,15 @@ if __name__ == "__main__":
     # create a smaple input with batch dimension 2
     out = ffn(x)
     print(out.shape)
+
+    ## nn with shortcut connections
+    layer_sizes = [3, 3, 3, 3, 3, 1]
+    sample_input = torch.tensor([[1.0, 0.0, -1.0]])
+    torch.manual_seed(123)
+    model_without_shortcut = DeepNeuralNetworkShortcut(layer_sizes, use_shortcut=False)
+
+    print_gradients(model_without_shortcut, sample_input)
+
+    torch.manual_seed(123)
+    model_with_shortcut = DeepNeuralNetworkShortcut(layer_sizes, use_shortcut=True)
+    print_gradients(model_with_shortcut, sample_input)
