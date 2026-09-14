@@ -91,22 +91,44 @@ class GELU(nn.Module):
         )
 
 
+# use GELU to implement the small NN network module , FeedForward ,
+# using it layer in the LLMs transfoer block later
+class FeedForward(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(cfg.emb_dim, 4 * cfg.emb_dim),
+            GELU(),
+            nn.Linear(4 * cfg.emb_dim, cfg.emb_dim),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+
+
 if __name__ == "__main__":
-    LayerNorm(emb_dim=6).simple_layer_norm_example()
+    # LayerNorm(emb_dim=6).simple_layer_norm_example()
     # plot gelu vs relu side by side
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
-    gelu, relu = GELU(), nn.ReLU()
+    # gelu, relu = GELU(), nn.ReLU()
 
-    x = torch.linspace(-3, 3, 100)
-    y_gelu, y_relu = gelu(x), relu(x)
-    plt.figure(figsize=(8, 3))
-    for i, (y, label) in enumerate(zip([y_gelu, y_relu], ["GELU", "ReLU"]), 1):
-        plt.subplot(1, 2, i)
-        plt.plot(x, y)
-        plt.title(f"{label} activation function")
-        plt.xlabel("x")
-        plt.ylabel(f"{label} (x)")
-        plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    # x = torch.linspace(-3, 3, 100)
+    # y_gelu, y_relu = gelu(x), relu(x)
+    # plt.figure(figsize=(8, 3))
+    # for i, (y, label) in enumerate(zip([y_gelu, y_relu], ["GELU", "ReLU"]), 1):
+    #    plt.subplot(1, 2, i)
+    #    plt.plot(x, y)
+    #    plt.title(f"{label} activation function")
+    #    plt.xlabel("x")
+    #    plt.ylabel(f"{label} (x)")
+    #    plt.grid(True)
+    # plt.tight_layout()
+    # plt.show()
+
+    # init a new FeedForward module with a token embedding size of 768 and feed it batch input with two samples
+    ffn = FeedForward(cfg())
+    x = torch.rand(2, 3, 768)
+    # create a smaple input with batch dimension 2
+    out = ffn(x)
+    print(out.shape)

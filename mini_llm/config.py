@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass
 class GPT_CONFIG_124M:
     # vocabulary size
     vocab_size: int = 50257
