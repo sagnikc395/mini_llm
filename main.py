@@ -34,6 +34,23 @@ def main():
     print(f"token embedding layer shape: {model.tok_emb.weight.shape}")
     print(f"output layer shape: {model.out_head.weight.shape}")
 
+    total_params_gpt2 = (
+        total_params - sum(p.numel() for p in model.out_head.parameters())
+    )
+
+    print(f"Number of trainable parameters, considering weight tying {total_params_gpt2}")
+
+    ## memory requirements calculation
+    total_size_bytes = total_params * 4
+    # calcs the total size in bytes( assuming flaot32, 4 bytes per parameter)
+    total_size_mb = total_size_bytes / (1024 * 1024)
+    # converting to bytes
+    print(f"Total size of the model is : {total_size_mb:.2f} MB")
+
+
+
+
+
 
 if __name__ == "__main__":
     main()
