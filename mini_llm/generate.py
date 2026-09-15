@@ -20,4 +20,4 @@ def generate_text_simple(model,idx,max_new_tokens,context_size):
             idx_next = torch.argmax(probs,dim=-1,keepdim=True)
             idx = torch.cat((idx,idx_next),dim=1)
 
-        return idx
+    return idx
