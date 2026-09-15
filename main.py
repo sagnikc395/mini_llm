@@ -2,7 +2,8 @@ import tiktoken
 import torch
 
 # from mini_llm.training.mini_llm_gpt import GPTModel
-from mini_llm.config import GPT_CONFIG_124M
+from mini_llm.config import GPT_CONFIG_124M as cfg
+from mini_llm.generate import generate_text_simple
 from mini_llm.training.gpt_model import GPTModel
 
 
@@ -20,7 +21,7 @@ def main():
 
     # 2. initialize instance and feed it the tokenized batch
     torch.manual_seed(123)
-    model = GPTModel(GPT_CONFIG_124M)
+    model = GPTModel(cfg)
     total_params = sum(p.numel() for p in model.parameters())
     logits = model(batch)
     print(f"Input batch: \n{batch}")
@@ -48,8 +49,22 @@ def main():
     print(f"Total size of the model is : {total_size_mb:.2f} MB")
 
 
+    start_context = "Hello, I am"
+    encoded = tokenizer.encode(start_context)
+    print(f"encoded: {encoded}")
+    encoded_tensor = torch.tensor(encoded).unsqueeze(0) # adding batch dimension
+    print(f"encoded_tensor.shape {encoded_tensor.shape}")
 
-
+    # model eval
+    model.eval()
+    out = generate_text_simple(
+        model=model,
+        idx=encoded_tensor,
+        max_new_tokens=6,
+        context_size=cfg.context_length
+    )
+    print(f"output: {out}")
+    print(f"output length: {len(out[0])}")
 
 
 if __name__ == "__main__":
