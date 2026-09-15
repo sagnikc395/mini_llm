@@ -66,6 +66,9 @@ def main():
     print(f"output: {out}")
     print(f"output length: {len(out[0])}")
 
+    # using the .decode method , we can convert the IDs back into text
+    decoded_text = tokenizer.decode(out.squeeze(0).tolist())
+    print(decoded_text)
 
 if __name__ == "__main__":
     main()
