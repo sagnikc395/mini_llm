@@ -107,8 +107,25 @@ def main():
     target_probas_2 = probas[text_idx,[0,1,2],targets[text_idx]]
     print(f"Text 2: {target_probas_2}")
 
+    # loss for it
+    log_probas = torch.log(torch.cat((target_probas_1,target_probas_2)))
+    print(log_probas)
 
+    avg_log_probas = torch.mean(log_probas)
+    print(f"average log loss : {avg_log_probas}")
 
+    neg_avg_log_probas = avg_log_probas * -1
+    print(neg_avg_log_probas)
+
+    # shapes of the logits and the target tensors
+    print(f"Logits Shape: {logits.shape}")
+    print(f"Targets Shape: {targets.shape}")
+
+    # flatten these tensors by combining them over the batch dimensions
+    logits_flat = logits.flatten(0,1)
+    targets_flat = targets.flatten()
+    print(f"Flattened logits: {logits_flat.shape}")
+    print(f"flattened targets: {targets_flat.shape}")
 
 if __name__ == "__main__":
     main()
