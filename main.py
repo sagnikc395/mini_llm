@@ -1,5 +1,7 @@
 import tiktoken
 import torch
+import torch.nn.functional as F
+
 
 # from mini_llm.architecture.mini_llm_gpt import GPTModel
 from mini_llm.config import GPT_CONFIG_124M as cfg
@@ -126,6 +128,9 @@ def main():
     targets_flat = targets.flatten()
     print(f"Flattened logits: {logits_flat.shape}")
     print(f"flattened targets: {targets_flat.shape}")
+
+    loss = F.cross_entropy(logits_flat,targets_flat)
+    print(f"Loss : {loss}\n")
 
 if __name__ == "__main__":
     main()
