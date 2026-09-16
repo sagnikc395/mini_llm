@@ -3,10 +3,8 @@ import torch
 
 # from mini_llm.architecture.mini_llm_gpt import GPTModel
 from mini_llm.config import GPT_CONFIG_124M as cfg
-from mini_llm.generate import generate_text_simple
 from mini_llm.architecture.gpt_model import GPTModel
-
-
+from mini_llm import generate
 def main():
     # 1. tokenization stage
     tokenizer = tiktoken.get_encoding("gpt2")
@@ -57,7 +55,7 @@ def main():
 
     # model eval
     model.eval()
-    out = generate_text_simple(
+    out = generate.generate_text_simple(
         model=model,
         idx=encoded_tensor,
         max_new_tokens=6,
@@ -66,9 +64,51 @@ def main():
     print(f"output: {out}")
     print(f"output length: {len(out[0])}")
 
-    # using the .decode method , we can convert the IDs back into text
-    decoded_text = tokenizer.decode(out.squeeze(0).tolist())
-    print(decoded_text)
+
+    start_context = "Every effort moves you"
+    tokenizer = tiktoken.get_encoding("gpt2")
+
+    torch.manual_seed(123)
+    model = GPTModel(cfg)
+    model.eval() # disables dropout for deterministic inference
+
+    token_ids = generate.generate_text_simple(
+        model = model,
+        idx = generate.text_to_token_ids(start_context, tokenizer),
+        max_new_tokens=10,
+        context_size=cfg.context_length
+    )
+    print(f"output text: \n{generate.token_ids_to_text(token_ids,tokenizer)}")
+
+
+    # feed the inputs to the model to calculate logits vector for the 2 input examples
+    inputs = torch.tensor([[16833, 3626, 6100], [40, 1107, 588]])
+    targets = torch.tensor([[3626, 6100, 345 ], [1107, 588, 11311]])
+
+    with torch.no_grad():
+        logits = model(inputs)
+    #prob of each token in vocabulary
+    probas = torch.softmax(logits,dim=-1)
+    print(probas.shape)
+
+    # applying the argmax function to the probability scores to obtain the corresponding token IDS
+    token_ids = torch.argmax(probas,dim=-1,keepdim=True)
+    print(f"Token IDS:\n {token_ids}")
+
+    print(f"Targets batch 1: {generate.token_ids_to_text(targets[0], tokenizer)}")
+    print(f"Outputs batch 1: {generate.token_ids_to_text(token_ids[0].flatten(), tokenizer)}")
+
+    # for each of the two input texts, now we can print the initial softmax probability scores corresponding to the target tokens using the code
+    text_idx = 0
+    target_probas_1 = probas[text_idx,[0,1,2],targets[text_idx]]
+    print(f"Text 1: {target_probas_1}")
+
+    text_idx = 1
+    target_probas_2 = probas[text_idx,[0,1,2],targets[text_idx]]
+    print(f"Text 2: {target_probas_2}")
+
+
+
 
 if __name__ == "__main__":
     main()
