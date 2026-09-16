@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from mini_llm.config import GPT_CONFIG_124M as cfg
-from mini_llm.training.mini_llm_gpt import TransformerBlock, LayerNorm
+from mini_llm.architecture.mini_llm_gpt import TransformerBlock, LayerNorm
 
 
 class GPTModel(nn.Module):

@@ -1,10 +1,10 @@
 import tiktoken
 import torch
 
-# from mini_llm.training.mini_llm_gpt import GPTModel
+# from mini_llm.architecture.mini_llm_gpt import GPTModel
 from mini_llm.config import GPT_CONFIG_124M as cfg
 from mini_llm.generate import generate_text_simple
-from mini_llm.training.gpt_model import GPTModel
+from mini_llm.architecture.gpt_model import GPTModel
 
 
 def main():
