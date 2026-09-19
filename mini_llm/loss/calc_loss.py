@@ -1,3 +1,5 @@
+import torch.nn.functional as F
+
 def calc_loss_batch(input_batch, target_batch, model, device):
     # device to allow us to transfer to a given device like GPU
     input_batch = input_batch.to(device)

@@ -26,7 +26,7 @@ def train_model_simple(
             optimizer.zero_grad()
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             # calc the loss gradients
-            loss.backwards()
+            loss.backward()
             # update model weights using loss gradients
             optimizer.step()
             # update the model weights using loss gradients
@@ -38,7 +38,8 @@ def train_model_simple(
                     model, train_loader, val_loader, device, eval_iter
                 )
                 train_losses.append(train_loss)
-                track_tokens_seen.append(val_loss)
+                val_losses.append(val_loss)
+                track_tokens_seen.append(tokens_seen)
                 print(
                     f"Ep {epoch + 1} (Step {global_step:06d}): Train Loss: {train_loss:.3f}, Val Loss: {val_loss:.3f}"
                 )

@@ -1,13 +1,13 @@
 from pathlib import Path
 
-# import tiktoken
+import tiktoken
 import torch
 
 from mini_llm.config import GPT_CONFIG_124M
 from mini_llm.architecture.gpt_model import GPTModel
-from mini_llm.pretraining.tokenizer_run import tokenizer
 from mini_llm.pretraining.dataset_loader import create_dataloader_v1
 from mini_llm.loss.calc_loss import calc_loss_loader
+from mini_llm.pretraining.train_model_simple import train_model_simple
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -20,6 +20,12 @@ def main(DEBUG=False):
     # validation split with zero full-length windows -> empty loader -> nan loss.
     # 256 tokens is short enough that both splits yield batches.
     cfg = GPT_CONFIG_124M(context_length=256)
+
+    # the data loaders tokenize with GPT-2 BPE, and the model's out_head has
+    # cfg.vocab_size (50257) outputs, so sampling must use the same encoding.
+    # SimpleTokenizer has a ~1160-word vocabulary built from the_verdict.txt and
+    # would mis-map every id in both directions.
+    tokenizer = tiktoken.get_encoding("gpt2")
 
     file_path = PROJECT_ROOT / "data" / "the_verdict.txt"
     text_data = file_path.read_text(encoding="utf-8")
@@ -67,20 +73,31 @@ def main(DEBUG=False):
 
     ## applying loss:
     # instantiate the model; eval mode disables dropout so the loss is deterministic
-    model = GPTModel(GPT_CONFIG_124M)
-    model.eval()
+    model = GPTModel(cfg)
 
     device = torch.device("mps" if torch.mps.is_available() else "cpu")
     print(f"DEVICE TYPE: {device}")
     model.to(device)
-    with torch.no_grad():
-        # disable gradient tacking for efficiency because we are not training yet
-        train_loss = calc_loss_loader(train_loader, model, device)
-        # via the "device" setting, we ensure the data is loaded onto the same device as the LLM model
-        val_loss = calc_loss_loader(val_loader, model, device)
+    if DEBUG:
+        model.eval()
+        with torch.no_grad():
+            # disable gradient tacking for efficiency because we are not training yet
+            train_loss = calc_loss_loader(train_loader, model, device)
+            # via the "device" setting, we ensure the data is loaded onto the same device as the LLM model
+            val_loss = calc_loss_loader(val_loader, model, device)
 
-    print(f"Training loss: {train_loss}")
-    print(f"Validation loss: {val_loss}")
+        print(f"Training loss: {train_loss}")
+        print(f"Validation loss: {val_loss}")
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=0.0004,weight_decay=0.1
+    )
+    num_epochs = 10
+    train_losses,val_losses, tokens_seen = train_model_simple(
+        model,train_loader,val_loader,optimizer,device,
+        num_epochs=num_epochs,eval_freq=5,eval_iter=5,start_context="Every effort moves you",tokenizer=tokenizer,
+    )
 
 
 if __name__ == "__main__":
