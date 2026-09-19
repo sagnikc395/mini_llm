@@ -2,53 +2,18 @@ from pathlib import Path
 
 # import tiktoken
 import torch
-import torch.nn.functional as F
 
 from mini_llm.config import GPT_CONFIG_124M
 from mini_llm.architecture.gpt_model import GPTModel
 from mini_llm.pretraining.tokenizer_run import tokenizer
 from mini_llm.pretraining.dataset_loader import create_dataloader_v1
-
+from mini_llm.loss.calc_loss import calc_loss_loader
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 # seed value
 torch.manual_seed(123)
 
-
-def calc_loss_batch(input_batch,target_batch,model,device):
-    # device to allow us to transfer to a given device like GPU
-    input_batch = input_batch.to(device)
-    target_batch = target_batch.to(device)
-    logits = model(input_batch)
-    loss = F.cross_entropy(
-        logits.flatten(0,1),target_batch.flatten()
-    )
-    return loss
-
-def calc_loss_loader(data_loader,model,device,num_batches=None):
-    total_loss = 0.0
-
-    if len(data_loader) == 0:
-        return float("nan")
-    elif num_batches is None:
-        num_batches = len(data_loader)
-    else:
-        num_batches = min(num_batches,len(data_loader))
-    for i, (input_batch,target_batch) in enumerate(data_loader):
-        # reduce the number of batches to match the total number of batches in the data loader
-        # if num_batches exceeds the number of batches in the data loader
-        if i < num_batches:
-            loss = calc_loss_batch(
-                input_batch,target_batch,model,device
-            )
-            # sum the loss over each batch
-            total_loss += loss.item()
-        else:
-            break
-
-    # avg the loss over all batches
-    return total_loss / num_batches
 
 def main(DEBUG=False):
     # the_verdict.txt is only ~5k tokens, so a 1024-token context leaves the 10%
@@ -78,7 +43,7 @@ def main(DEBUG=False):
         stride=cfg.context_length,
         drop_last=True,
         shuffle=True,
-        num_workers=0
+        num_workers=0,
     )
 
     val_loader = create_dataloader_v1(
@@ -94,12 +59,11 @@ def main(DEBUG=False):
         print("=====")
         print("CHECKING if data loaders are created correctly")
         print("Train loader:")
-        for x,y in train_loader:
-            print(x.shape,y.shape)
+        for x, y in train_loader:
+            print(x.shape, y.shape)
         print("\nValidation loader:")
         for x, y in val_loader:
-            print(x.shape,y.shape)
-
+            print(x.shape, y.shape)
 
     ## applying loss:
     # instantiate the model; eval mode disables dropout so the loss is deterministic
@@ -111,13 +75,12 @@ def main(DEBUG=False):
     model.to(device)
     with torch.no_grad():
         # disable gradient tacking for efficiency because we are not training yet
-        train_loss = calc_loss_loader(train_loader,model,device)
+        train_loss = calc_loss_loader(train_loader, model, device)
         # via the "device" setting, we ensure the data is loaded onto the same device as the LLM model
-        val_loss = calc_loss_loader(val_loader,model,device)
+        val_loss = calc_loss_loader(val_loader, model, device)
 
     print(f"Training loss: {train_loss}")
     print(f"Validation loss: {val_loss}")
-
 
 
 if __name__ == "__main__":
