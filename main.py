@@ -51,6 +51,11 @@ def calc_loss_loader(data_loader,model,device,num_batches=None):
     return total_loss / num_batches
 
 def main(DEBUG=False):
+    # the_verdict.txt is only ~5k tokens, so a 1024-token context leaves the 10%
+    # validation split with zero full-length windows -> empty loader -> nan loss.
+    # 256 tokens is short enough that both splits yield batches.
+    cfg = GPT_CONFIG_124M(context_length=256)
+
     file_path = PROJECT_ROOT / "data" / "the_verdict.txt"
     text_data = file_path.read_text(encoding="utf-8")
 
@@ -69,8 +74,8 @@ def main(DEBUG=False):
     train_loader = create_dataloader_v1(
         train_data,
         batch_size=2,
-        max_length=GPT_CONFIG_124M.context_length,
-        stride=GPT_CONFIG_124M.context_length,
+        max_length=cfg.context_length,
+        stride=cfg.context_length,
         drop_last=True,
         shuffle=True,
         num_workers=0
@@ -79,8 +84,8 @@ def main(DEBUG=False):
     val_loader = create_dataloader_v1(
         val_data,
         batch_size=2,
-        max_length=GPT_CONFIG_124M.context_length,
-        stride=GPT_CONFIG_124M.context_length,
+        max_length=cfg.context_length,
+        stride=cfg.context_length,
         drop_last=False,
         shuffle=False,
         num_workers=0,
@@ -98,7 +103,7 @@ def main(DEBUG=False):
 
     ## applying loss:
     # instantiate the model; eval mode disables dropout so the loss is deterministic
-    model = GPTModel(GPT_CONFIG_124M)
+    model = GPTModel(cfg)
     model.eval()
 
     device = torch.device("mps" if torch.mps.is_available() else "cpu")
