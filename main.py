@@ -103,7 +103,7 @@ def main(DEBUG=False):
 
     ## applying loss:
     # instantiate the model; eval mode disables dropout so the loss is deterministic
-    model = GPTModel(cfg)
+    model = GPTModel(GPT_CONFIG_124M)
     model.eval()
 
     device = torch.device("mps" if torch.mps.is_available() else "cpu")
