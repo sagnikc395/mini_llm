@@ -7,6 +7,7 @@ from mini_llm.config import GPT_CONFIG_124M
 from mini_llm.architecture.gpt_model import GPTModel
 from mini_llm.pretraining.dataset_loader import create_dataloader_v1
 from mini_llm.loss.calc_loss import calc_loss_loader
+from mini_llm.loss.plot_loss import plot_losses
 from mini_llm.pretraining.train_model_simple import train_model_simple
 
 
@@ -99,6 +100,9 @@ def main(DEBUG=False):
         num_epochs=num_epochs,eval_freq=5,eval_iter=5,start_context="Every effort moves you",tokenizer=tokenizer,
     )
 
+    # plot the losses and save it under plots/
+    epochs_seen = torch.linspace(0, num_epochs, len(train_losses))
+    plot_losses(epochs_seen, tokens_seen, train_losses, val_losses)
 
 if __name__ == "__main__":
     main(DEBUG=False)
