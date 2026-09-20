@@ -31,6 +31,46 @@ final checkpoint
 ```
 
 
+## running it
+
+```bash
+# train the small GPT from scratch on data/the_verdict.txt
+uv run python main.py train --epochs 10
+uv run python main.py train --epochs 1 --debug --no-save   # quick sanity run
+
+# download OpenAI's original GPT-2 weights (124M / 355M / 774M / 1558M)
+uv run python -m mini_llm.pretraining.download_gpt_weights --model-size 124M
+
+# load those weights into our GPTModel and sample from them
+uv run python main.py pretrained --prompt "Every effort moves you" --top-k 50 --temperature 1.0
+```
+
+`main.py` is only the CLI + orchestration; everything reusable lives under `mini_llm/`:
+
+```
+mini_llm/
+  config.py                              GPT_CONFIG_124M dataclass
+  architecture/    gpt_model.py           GPTModel
+                   mini_llm_gpt.py        TransformerBlock, LayerNorm, GELU, FeedForward
+  attention/       multi_head_attention.py
+  loss/            calc_loss.py, plot_loss.py
+  pretraining/     dataset_loader.py           the sliding-window Dataset + DataLoader
+                   train_model_simple.py       the training loop
+                   download_gpt_weights.py     fetch OpenAI's TF checkpoints -> numpy
+                   load_pretrained_weights.py  copy those numpy arrays into GPTModel
+  generate.py                            greedy + top-k/temperature sampling
+```
+
+## decisions made along the way
+
+- **click, not argparse, for anything with a CLI.** both `main.py` (a group with `train` / `pretrained`) and the weight downloader use it. `click.Choice` gives the model-size validation for free, and the group means one entry point rather than a pile of scripts.
+- **256-token context when training on the_verdict.txt.** the book is only ~5k tokens, so a 1024-token context leaves the 10% validation split with *zero* full-length windows -> empty loader -> nan validation loss. 256 is short enough that both splits actually yield batches. the pretrained path uses 1024, because that's the size of the checkpoint's positional embedding table.
+- **weight loading is its own module, not inline in main.** `load_pretrained_weights.py` sits next to the downloader that feeds it. two conversions matter there: TF stores dense layers as `(in, out)` while `nn.Linear` wants `(out, in)` (so every weight matrix is transposed on the way in), and the three attention projections live in one fused `c_attn` tensor that gets split into q/k/v thirds.
+- **`assign()` refuses a shape mismatch instead of reshaping.** a silent mismatch produces a model that runs and emits fluent-looking garbage, which is much harder to debug than an exception at load time. same reasoning behind the upfront check that the model was built with `qkv_bias=True` — GPT-2 trained the attention projections with biases, so a `qkv_bias=False` model has nowhere to put them.
+- **tensorflow is imported lazily, inside the `pretrained` command.** it's only needed to read OpenAI's TF v1 checkpoints; the `train` path shouldn't pay a multi-second import for a dependency it never touches.
+- **sampling always runs under `model.eval()`.** otherwise dropout is live during generation and quietly adds noise to the sampled distribution.
+- **hyperparameters are module constants at the top of `main.py`**, not scattered through the call sites — easier to see what the run actually was.
+
 ## Additional Resources that I found helpful throughout this 
 
 1. Reading the [Scaling Laws, Carefully](https://lilianweng.github.io/posts/2026-06-24-scaling-laws/) post helped me see that scaling laws are way less settled than I thought - the whole Kaplan vs Chinchilla disagreement mostly comes down to boring procedural stuff (whether you count embedding params, which loss region you fit, how far you extrapolate) rather than some deep conflict. Also got introduced to data-constrained scaling, which feels like the regime that actually matters now. Before this I had only learnt the Kaplan scaling laws from CS685. Blog post on my learning soon.

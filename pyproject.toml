@@ -5,9 +5,12 @@ description = "an complete large language model and tokenization system written 
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "click>=8.5.0",
     "matplotlib>=3.11.1",
     "numpy>=2.5.2",
+    "tensorflow>=2.21.0",
     "tiktoken>=0.14.0",
     "torch>=2.13.0",
+    "tqdm>=4.70.1",
 ]
 

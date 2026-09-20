@@ -1,7 +1,5 @@
 import torch
 
-from mini_llm.attention.compact_self_attention import contenxt_length
-
 
 def text_to_token_ids(text, tokenizer):
     encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})

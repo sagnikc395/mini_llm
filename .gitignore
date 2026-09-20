@@ -13,3 +13,6 @@ data/
 
 # Model checkpoints
 saved_models/
+
+# Downloaded GPT-2 checkpoints
+gpt2/
