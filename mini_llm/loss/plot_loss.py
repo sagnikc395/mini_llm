@@ -5,8 +5,6 @@ import torch
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
-from mini_llm.generate import softmax_with_temperate
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PLOTS_DIR = PROJECT_ROOT / "plots"
 
@@ -45,7 +43,7 @@ def plot_losses(epochs_seen,tokens_seen,train_losses,val_losses):
     # temperatures and scaled probabilities
     temperatures = [1,0.1,5]
     next_token_logits = torch.tensor([4.51, 0.89, -1.90, 6.75, 1.63, -1.62, -1.89, 6.28, 1.79])
-    scaled_probas = [softmax_with_temperate(next_token_logits,T) for T in temperatures]
+    scaled_probas = [torch.softmax(next_token_logits / T,dim=0) for T in temperatures]
 
     x = torch.arange(len(vocab))
     bar_width = 0.15

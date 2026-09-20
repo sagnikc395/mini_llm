@@ -10,6 +10,7 @@ from mini_llm.pretraining.dataset_loader import create_dataloader_v1
 from mini_llm.loss.calc_loss import calc_loss_loader
 from mini_llm.loss.plot_loss import plot_losses
 from mini_llm.pretraining.train_model_simple import train_model_simple
+from mini_llm.generate import generate
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -115,11 +116,17 @@ def main(DEBUG=False):
     epochs_seen = torch.linspace(0, num_epochs, len(train_losses))
     plot_losses(epochs_seen, tokens_seen, train_losses, val_losses)
 
-    if DEBUG:
-        logits = model([])
-        probas = torch.softmax(logits, dim=-1)
-        next_token_id = torch.multinomial(probas,num_samples=1).item()
+    token_ids = generate(
+        model=model,
+        # model lives on `device` by this point, so the prompt ids must too
+        idx=text_to_token_ids("Every effort moves you",tokenizer).to(device),
+        max_new_tokens=15,
+        context_size=cfg.context_length,
+        top_k=25,
+        temperature=1.4
+    )
 
+    print(f"Output text:\n{token_ids_to_text(token_ids,tokenizer)}")
 
 if __name__ == "__main__":
     main(DEBUG=False)

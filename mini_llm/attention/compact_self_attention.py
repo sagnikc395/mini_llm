@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from basic_attention import inputs
+from mini_llm.attention.basic_attention import inputs
 
 
 class SelfAttention(nn.Module):
