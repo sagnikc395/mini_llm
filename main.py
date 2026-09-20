@@ -11,7 +11,7 @@ from mini_llm.loss.calc_loss import calc_loss_loader
 from mini_llm.loss.plot_loss import plot_losses
 from mini_llm.pretraining.train_model_simple import train_model_simple
 from mini_llm.generate import generate
-
+from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 # seed value
@@ -127,6 +127,16 @@ def main(DEBUG=False):
     )
 
     print(f"Output text:\n{token_ids_to_text(token_ids,tokenizer)}")
+
+    # save the models; the timestamp goes down to seconds so several runs on the
+    # same day don't overwrite each other
+    models_dir = PROJECT_ROOT / "saved_models"
+    models_dir.mkdir(parents=True,exist_ok=True)
+    now = datetime.now()
+    model_save_path = models_dir / ("gpt_model_"+now.strftime("%d-%m-%Y_%H-%M-%S")+".pth")
+    torch.save(model.state_dict(),model_save_path)
+    print(f"Model saved to {model_save_path}")
+
 
 if __name__ == "__main__":
     main(DEBUG=False)
