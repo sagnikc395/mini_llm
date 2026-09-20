@@ -134,7 +134,9 @@ def main(DEBUG=False):
     models_dir.mkdir(parents=True,exist_ok=True)
     now = datetime.now()
     model_save_path = models_dir / ("gpt_model_"+now.strftime("%d-%m-%Y_%H-%M-%S")+".pth")
-    torch.save(model.state_dict(),model_save_path)
+    torch.save({
+       "model_state_dict": model.state_dict(),"optimizer_state_dict":optimizer.state_dict(),},model_save_path
+    )
     print(f"Model saved to {model_save_path}")
 
 
