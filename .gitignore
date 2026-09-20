@@ -16,3 +16,6 @@ saved_models/
 
 # Downloaded GPT-2 checkpoints
 gpt2/
+
+sms_spam_collection
+sms_spam_collection.zip
