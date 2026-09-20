@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 torch.manual_seed(123)
 
 
+
 def main(DEBUG=False):
     # the_verdict.txt is only ~5k tokens, so a 1024-token context leaves the 10%
     # validation split with zero full-length windows -> empty loader -> nan loss.
@@ -114,6 +115,10 @@ def main(DEBUG=False):
     epochs_seen = torch.linspace(0, num_epochs, len(train_losses))
     plot_losses(epochs_seen, tokens_seen, train_losses, val_losses)
 
+    if DEBUG:
+        logits = model([])
+        probas = torch.softmax(logits, dim=-1)
+        next_token_id = torch.multinomial(probas,num_samples=1).item()
 
 
 if __name__ == "__main__":
