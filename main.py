@@ -5,6 +5,7 @@ import torch
 
 from mini_llm.config import GPT_CONFIG_124M
 from mini_llm.architecture.gpt_model import GPTModel
+from mini_llm.generate import generate_text_simple, text_to_token_ids, token_ids_to_text
 from mini_llm.pretraining.dataset_loader import create_dataloader_v1
 from mini_llm.loss.calc_loss import calc_loss_loader
 from mini_llm.loss.plot_loss import plot_losses
@@ -75,6 +76,14 @@ def main(DEBUG=False):
     ## applying loss:
     # instantiate the model; eval mode disables dropout so the loss is deterministic
     model = GPTModel(cfg)
+    token_ids = generate_text_simple(
+        model=model,
+        idx=text_to_token_ids("Every effort moves you",tokenizer),
+        max_new_tokens=25,
+        context_size=cfg.context_length
+    )
+    print(f"output text:\n{token_ids_to_text(token_ids,tokenizer)}")
+
 
     device = torch.device("mps" if torch.mps.is_available() else "cpu")
     print(f"DEVICE TYPE: {device}")
@@ -100,9 +109,12 @@ def main(DEBUG=False):
         num_epochs=num_epochs,eval_freq=5,eval_iter=5,start_context="Every effort moves you",tokenizer=tokenizer,
     )
 
+
     # plot the losses and save it under plots/
     epochs_seen = torch.linspace(0, num_epochs, len(train_losses))
     plot_losses(epochs_seen, tokens_seen, train_losses, val_losses)
+
+
 
 if __name__ == "__main__":
     main(DEBUG=False)
