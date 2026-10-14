@@ -58,7 +58,7 @@ class SpamDataset(Dataset):
 
         # pads the sequences to the longest sequence
         self.encoded_texts = [
-            self.encoded_text + [pad_token_id] * [self.max_length - len(encoded_text)]
+            encoded_text + [pad_token_id] * (self.max_length - len(encoded_text))
             for encoded_text in self.encoded_texts
         ]
 
@@ -76,7 +76,7 @@ class SpamDataset(Dataset):
     def _longest_encoded_length(self):
         max_length = 0
         for encoded_text in self.encoded_texts:
-            encoded_length = len(self.encoded_text)
+            encoded_length = len(encoded_text)
             if encoded_length > max_length:
                 max_length = encoded_length
         return max_length

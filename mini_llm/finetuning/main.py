@@ -1,3 +1,5 @@
+import tiktoken
+
 from mini_llm.finetuning.download_dataset import (
     download_and_unzip_spam_data,
     url,
@@ -5,7 +7,11 @@ from mini_llm.finetuning.download_dataset import (
     extracted_path,
     data_file_path,
 )
-from mini_llm.finetuning.load_dataset import load_spam_dataset, random_split
+from mini_llm.finetuning.load_dataset import (
+    load_spam_dataset,
+    random_split,
+    SpamDataset,
+)
 
 
 if __name__ == "__main__":
@@ -19,3 +25,11 @@ if __name__ == "__main__":
     train_df.to_csv("train.csv", index=None)
     validation_df.to_csv("validation.csv", index=None)
     test_df.to_csv("test.csv", index=None)
+
+    tokenizer = tiktoken.get_encoding("gpt2")
+
+    train_dataset = SpamDataset(
+        csv_file="train.csv",
+        max_length=None,
+        tokenizer=tokenizer,
+    )
