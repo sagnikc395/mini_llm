@@ -9,7 +9,7 @@ extracted_path = "sms_spam_collection"
 data_file_path = Path(extracted_path) / "SMSSpamCollection.tsv"
 
 
-def download_and_unzip_spam_data(url,zip_path,extracted_path,data_file_path):
+def download_and_unzip_spam_data(url, zip_path, extracted_path, data_file_path):
     if data_file_path.exists():
         print(f"{data_file_path} already exists. Skipping download and extraction")
         return
