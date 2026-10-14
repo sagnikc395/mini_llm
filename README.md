@@ -70,6 +70,8 @@ mini_llm/
 - **tensorflow is imported lazily, inside the `pretrained` command.** it's only needed to read OpenAI's TF v1 checkpoints; the `train` path shouldn't pay a multi-second import for a dependency it never touches.
 - **sampling always runs under `model.eval()`.** otherwise dropout is live during generation and quietly adds noise to the sampled distribution.
 - **hyperparameters are module constants at the top of `main.py`**, not scattered through the call sites — easier to see what the run actually was.
+- **labels are mapped to ints (`ham`->0, `spam`->1) before the splits are written to csv**, not inside `SpamDataset.__getitem__`. the dataset hands `self.data["Label"]` straight to `torch.tensor(..., dtype=torch.long)`, which raises `TypeError: new(): invalid data type 'str'` on the raw strings. doing the mapping once on the balanced dataframe means the csvs on disk are already model-ready and every split goes through the same encoding.
+- **the spam set is undersampled to balance it before splitting.** ~4800 ham vs ~750 spam means a classifier can hit 87% accuracy by always answering ham, so accuracy would say nothing. `create_balanced_dataset` samples ham down to the spam count; balancing before the split keeps train/val/test all balanced.
 
 ## Additional Resources that I found helpful throughout this 
 
