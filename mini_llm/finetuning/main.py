@@ -5,8 +5,7 @@ from mini_llm.finetuning.download_dataset import (
     extracted_path,
     data_file_path,
 )
-from mini_llm.finetuning.load_dataset import load_spam_dataset
-from mini_llm.finetuning.split_dataset import random_split
+from mini_llm.finetuning.load_dataset import load_spam_dataset, random_split
 
 
 if __name__ == "__main__":
@@ -20,4 +19,3 @@ if __name__ == "__main__":
     train_df.to_csv("train.csv", index=None)
     validation_df.to_csv("validation.csv", index=None)
     test_df.to_csv("test.csv", index=None)
-    
