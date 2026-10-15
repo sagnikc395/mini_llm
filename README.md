@@ -34,44 +34,106 @@ final checkpoint
 ## running it
 
 ```bash
-# train the small GPT from scratch on data/the_verdict.txt
+# train the small GPT from scratch on data/the_verdict.txt (downloaded on first run)
 uv run python main.py train --epochs 10
 uv run python main.py train --epochs 1 --debug --no-save   # quick sanity run
 
 # download OpenAI's original GPT-2 weights (124M / 355M / 774M / 1558M)
-uv run python -m mini_llm.pretraining.download_gpt_weights --model-size 124M
+uv run python main.py download-weights --size 124M
 
 # load those weights into our GPTModel and sample from them
 uv run python main.py pretrained --prompt "Every effort moves you" --top-k 50 --temperature 1.0
+
+# build the spam-classification splits for finetuning
+uv run python main.py spam-data
 ```
 
-`main.py` is only the CLI + orchestration; everything reusable lives under `mini_llm/`:
+## layout
+
+`main.py` is a four-line shim over `mini_llm/cli.py`; everything reusable is a
+flat module under `mini_llm/`, roughly in the order the pieces stack up:
 
 ```
 mini_llm/
-  config.py                              GPT_CONFIG_124M dataclass
-  architecture/    gpt_model.py           GPTModel
-                   mini_llm_gpt.py        TransformerBlock, LayerNorm, GELU, FeedForward
-  attention/       multi_head_attention.py
-  loss/            calc_loss.py, plot_loss.py
-  pretraining/     dataset_loader.py           the sliding-window Dataset + DataLoader
-                   train_model_simple.py       the training loop
-                   download_gpt_weights.py     fetch OpenAI's TF checkpoints -> numpy
-                   load_pretrained_weights.py  copy those numpy arrays into GPTModel
-  generate.py                            greedy + top-k/temperature sampling
+  config.py        GPTConfig, and the four GPT-2 sizes
+  tokenizer.py     a word-level tokenizer (reference only; we use tiktoken)
+  attention.py     CausalAttention, MultiHeadAttention
+  model.py         GELU, LayerNorm, FeedForward, TransformerBlock, GPTModel
+  generate.py      text <-> token ids, and the sampling loop
+  data.py          the_verdict.txt, sliced into training windows
+  training.py      losses, the training loop, device selection
+  gpt2_weights.py  OpenAI's pretrained checkpoints -> our GPTModel
+  spam.py          the spam-classification finetuning dataset
+  plotting.py      loss curves
+  paths.py         every on-disk location, derived from the repo root
+  cli.py           the click group behind main.py
+notes/             step-by-step scripts from working through the book
 ```
+
+Importing anything under `mini_llm/` is free of side effects — nothing
+downloads, trains or prints at import time.
 
 ## decisions made along the way
 
-- **click, not argparse, for anything with a CLI.** both `main.py` (a group with `train` / `pretrained`) and the weight downloader use it. `click.Choice` gives the model-size validation for free, and the group means one entry point rather than a pile of scripts.
-- **256-token context when training on the_verdict.txt.** the book is only ~5k tokens, so a 1024-token context leaves the 10% validation split with *zero* full-length windows -> empty loader -> nan validation loss. 256 is short enough that both splits actually yield batches. the pretrained path uses 1024, because that's the size of the checkpoint's positional embedding table.
-- **weight loading is its own module, not inline in main.** `load_pretrained_weights.py` sits next to the downloader that feeds it. two conversions matter there: TF stores dense layers as `(in, out)` while `nn.Linear` wants `(out, in)` (so every weight matrix is transposed on the way in), and the three attention projections live in one fused `c_attn` tensor that gets split into q/k/v thirds.
-- **`assign()` refuses a shape mismatch instead of reshaping.** a silent mismatch produces a model that runs and emits fluent-looking garbage, which is much harder to debug than an exception at load time. same reasoning behind the upfront check that the model was built with `qkv_bias=True` — GPT-2 trained the attention projections with biases, so a `qkv_bias=False` model has nowhere to put them.
-- **tensorflow is imported lazily, inside the `pretrained` command.** it's only needed to read OpenAI's TF v1 checkpoints; the `train` path shouldn't pay a multi-second import for a dependency it never touches.
-- **sampling always runs under `model.eval()`.** otherwise dropout is live during generation and quietly adds noise to the sampled distribution.
-- **hyperparameters are module constants at the top of `main.py`**, not scattered through the call sites — easier to see what the run actually was.
-- **labels are mapped to ints (`ham`->0, `spam`->1) before the splits are written to csv**, not inside `SpamDataset.__getitem__`. the dataset hands `self.data["Label"]` straight to `torch.tensor(..., dtype=torch.long)`, which raises `TypeError: new(): invalid data type 'str'` on the raw strings. doing the mapping once on the balanced dataframe means the csvs on disk are already model-ready and every split goes through the same encoding.
-- **the spam set is undersampled to balance it before splitting.** ~4800 ham vs ~750 spam means a classifier can hit 87% accuracy by always answering ham, so accuracy would say nothing. `create_balanced_dataset` samples ham down to the spam count; balancing before the split keeps train/val/test all balanced.
+- **flat modules, one concept each.** the package used to be
+  `architecture/`, `attention/`, `loss/`, `pretraining/`, `finetuning/`, most of
+  them holding a single file, with two different `GPTModel` classes and three
+  competing config objects. ~1700 lines does not need a directory tree; it needs
+  `model.py`, `attention.py`, `config.py`.
+- **the library never runs anything at import time.** several modules used to
+  print, train or *download a file* just from being imported — `import
+  mini_llm.pretraining.download_data` fetched the-verdict.txt as a side effect.
+  the exploratory scripts now live in `notes/`, import from `mini_llm/`, and
+  nothing imports them back.
+- **one config object, `GPTConfig`.** `gpt2_config("355M")` derives the
+  pretrained variants from it. the old `finetuning/config.py` dict had
+  `contenxt_length` and `n_heades` typos that silently did nothing, which is
+  exactly the failure a single typed dataclass prevents.
+- **one `generate()`, not `generate` plus `generate_text_simple`.** temperature
+  0 with no top-k *is* greedy decoding, so the "simple" variant was the same
+  function with two branches removed.
+- **paths come from `paths.py`, never the cwd.** the spam pipeline used to write
+  its csvs wherever you happened to run it from, and the splits ended up
+  committed inside the package. they are generated artifacts, so they live in
+  the gitignored `data/spam/`.
+- **click, not argparse, for anything with a CLI.** `main.py` is one group
+  (`train` / `pretrained` / `download-weights` / `spam-data`) rather than a pile
+  of scripts, and `click.Choice` gives the model-size validation for free.
+- **256-token context when training on the_verdict.txt.** the book is only ~5k
+  tokens, so a 1024-token context leaves the 10% validation split with *zero*
+  full-length windows -> empty loader -> nan validation loss. 256 is short
+  enough that both splits actually yield batches. the pretrained path uses 1024,
+  because that's the size of the checkpoint's positional embedding table.
+- **weight loading sits next to the downloader that feeds it**, in
+  `gpt2_weights.py`. two conversions matter there: TF stores dense layers as
+  `(in, out)` while `nn.Linear` wants `(out, in)` (so every weight matrix is
+  transposed on the way in), and the three attention projections live in one
+  fused `c_attn` tensor that gets split into q/k/v thirds.
+- **`_assign()` refuses a shape mismatch instead of reshaping.** a silent
+  mismatch produces a model that runs and emits fluent-looking garbage, which is
+  much harder to debug than an exception at load time. same reasoning behind the
+  upfront check that the model was built with `qkv_bias=True` — GPT-2 trained the
+  attention projections with biases, so a `qkv_bias=False` model has nowhere to
+  put them.
+- **tensorflow is imported inside the function that reads the checkpoint.** it's
+  only needed for OpenAI's TF v1 files; the `train` path shouldn't pay a
+  multi-second import for a dependency it never touches.
+- **sampling always runs under `model.eval()`.** otherwise dropout is live
+  during generation and quietly adds noise to the sampled distribution.
+- **hyperparameters are module constants at the top of `cli.py`**, not scattered
+  through the call sites — easier to see what the run actually was.
+- **labels are mapped to ints (`ham`->0, `spam`->1) before the splits are written
+  to csv**, not inside `SpamDataset.__getitem__`. the dataset hands
+  `self.data["Label"]` straight to `torch.tensor(..., dtype=torch.long)`, which
+  raises `TypeError: new(): invalid data type 'str'` on the raw strings. doing
+  the mapping once means the csvs on disk are already model-ready.
+- **the spam set is undersampled to balance it before splitting.** ~4800 ham vs
+  ~750 spam means a classifier can hit 87% accuracy by always answering ham, so
+  accuracy would say nothing. balancing before the split keeps train/val/test all
+  balanced.
+- **matplotlib uses the Agg backend and saves to `plots/`.** no run ever blocks
+  on an open window, and the timestamped filenames mean successive runs don't
+  overwrite each other.
 
 ## Additional Resources that I found helpful throughout this 
 

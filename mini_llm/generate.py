@@ -1,87 +1,62 @@
+"""Turning text into token ids, sampling the next token, and back to text."""
+
 import torch
 
 
 def text_to_token_ids(text, tokenizer):
+    """Encode `text` and add the batch dimension the model expects."""
     encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
-    encoded_tensor = torch.tensor(encoded).unsqueeze(0)  # adding the batch dimension
-    return encoded_tensor
+    return torch.tensor(encoded).unsqueeze(0)
 
 
 def token_ids_to_text(token_ids, tokenizer):
-    flat = token_ids.squeeze(0)  # removes the batch dimension
-    return tokenizer.decode(flat.tolist())
-
-# def softmax_with_temperate(logits,temperature):
-#     scaled_logits = logits / temperature
-#     return torch.softmax(scaled_logits,dim=0)
-
-# def top_k_sampling(next_token_logits,top_k):
-#     top_logits,top_pos = torch.topk(next_token_logits,top_k)
-#     print(f"Top logits: {top_logits}")
-#     print(f"Top positions: {top_pos}")
-
-#     new_logits = torch.where(
-#         # identify logits less than the mini
-#         condition=next_token_logits < top_logits[-1],
-#         # assign -inf to these lower logits
-#         input=torch.tensor(float('-inf')),
-#         # retains the original logits for all other tokens
-#         other=next_token_logits
-#     )
-
-#     # apply the softmax
-#     topk_probas = torch.softmax(new_logits,dim=0)
-#     return topk_probas
+    """Drop the batch dimension and decode back to a string."""
+    return tokenizer.decode(token_ids.squeeze(0).tolist())
 
 
-# function for the GPT model to generate the next text
-def generate_text_simple(model, idx, max_new_tokens, context_size):
-    # iterates for a specified number of new tokens to be generated , crop the curent context
-    # # to fit the model's maximum context size, compute the predictions and then select the next token based
-    # # on the highest probability prediction.
-    # idx -> (batch,n_tokens) array of indices in the current context
-    #
+@torch.no_grad()
+def generate(
+    model,
+    idx,
+    max_new_tokens,
+    context_size=None,
+    temperature=0.0,
+    top_k=None,
+    eos_id=None,
+):
+    """Autoregressively extend `idx` by `max_new_tokens` token ids.
+
+    The defaults (temperature 0, no top-k) give plain greedy decoding: take the
+    single highest-scoring token every step. Raising temperature or setting
+    top_k switches to sampling instead.
+
+    Call this under `model.eval()` -- in train mode dropout is live and quietly
+    adds noise to the distribution you sample from.
+    """
+    context_size = context_size or model.context_length
+
     for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]
-        with torch.no_grad():
-            logits = model(idx_cond)
+        # the model can only see context_size tokens, so crop from the left
+        logits = model(idx[:, -context_size:])
+        # only the last position predicts the next token
+        logits = logits[:, -1, :]
 
-            # focus only on the last time step so that
-            logits = logits[:, -1, :]
-            # (batch,n_token,vocab_size) becomes (batch,vocab_size)
-            probs = torch.softmax(logits, dim=-1)
-            idx_next = torch.argmax(probs, dim=-1, keepdim=True)
-            idx = torch.cat((idx, idx_next), dim=1)
-
-    return idx
-
-## the core handler for everything that we can call directly and this would chain these and used
-def generate(model,idx,max_new_tokens,context_size,temperature=0.0,top_k=None,eos_id=None):
-    for _ in range(max_new_tokens):
-        # for loop is the same as befor, gets logits and only focuses on the last time step
-        idx_cond = idx[:,-context_size:]
-        with torch.no_grad():
-            logits = model(idx_cond)
-        logits = logits[:,-1,:]
         if top_k is not None:
-            # filter logits with top_k sampling
-            top_logits,_ = torch.topk(logits,top_k)
-            min_val = top_logits[:,-1]
-            logits = torch.where(
-                logits < min_val,
-                torch.tensor(float('-inf')).to(logits.device),
-                logits,
-            )
-        # apply temperature scaling
+            # keep the top_k scores, push everything else to -inf so softmax
+            # gives it zero probability
+            top_logits, _ = torch.topk(logits, top_k)
+            min_keep = top_logits[:, -1:]
+            logits = torch.where(logits < min_keep, -torch.inf, logits)
+
         if temperature > 0.0:
-            logits = logits / temperature
-            probs = torch.softmax(logits,dim=-1)
-            idx_next = torch.multinomial(probs,num_samples=1)
+            probs = torch.softmax(logits / temperature, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
         else:
-            # carry out greedy next-token selection as before when temperature scaling is disabled
-            idx_next = torch.argmax(logits,dim=-1,keepdim=True)
-        # stop generating early if eos token is encoutered
-        if idx_next == eos_id:
+            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+
+        if eos_id is not None and (idx_next == eos_id).all():
             break
-        idx = torch.cat((idx,idx_next),dim=1)
+
+        idx = torch.cat((idx, idx_next), dim=1)
+
     return idx
